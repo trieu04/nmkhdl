@@ -1,0 +1,27 @@
+# Python environment and caches
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Generated pipeline artifacts
+data/processed/
+data/splits/
+data/interim/
+models/
+reports/figures/
+reports/*.json
+experiments/logs/
+experiments/runs/
+experiments/log.csv
+experiments/winners.md
+
+# Local copies and archives
+rootdata - Copy/
+OneDrive_1_5-17-2026/
+OneDrive_1_5-17-2026.zip
+dataset.zip
