@@ -13,10 +13,10 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import StratifiedGroupKFold
 
-from .config import PROCESSED_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR, UNKNOWN_USERS, SEED, N_CHANNELS
+from .config import PROJECT_ROOT, PROCESSED_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR, UNKNOWN_USERS, SEED, N_CHANNELS
 from .datasets import InertialDataset
-from .models import CNN1D
-from .train import load_npz, split_known_unknown
+from .models import CNN1D, make_model
+from .train import load_npz
 
 
 def _embed_batch(model, X, mean, std, device, batch=256):
@@ -59,11 +59,44 @@ def _fit_gaussians(emb_tr, y_tr, n_classes, reg=1e-3):
     return mus, inv_covs
 
 
-def evaluate_fold(fold_dir: Path, X_tr, y_tr, X_va, y_va, X_un, device):
+def _latest_simple_run_dir() -> Path | None:
+    runs_dir = PROJECT_ROOT / "experiments" / "runs"
+    candidates = sorted(p for p in runs_dir.glob("*SIMPLE_CNN") if p.is_dir())
+    for run_dir in reversed(candidates):
+        if all((run_dir / f"fold{i}" / "model.pt").exists() for i in range(3)):
+            return run_dir
+    return None
+
+
+def _fold_dir(run_dir: Path | None, fold: int) -> Path:
+    if run_dir is not None:
+        return run_dir / f"fold{fold}"
+    return MODELS_DIR / f"fold{fold}"
+
+
+def _load_model(fold_dir: Path, device):
     ckpt = torch.load(fold_dir / "model.pt", map_location=device, weights_only=False)
-    classes = ckpt["classes"]; mean = ckpt["mean"]; std = ckpt["std"]
-    model = CNN1D(in_channels=N_CHANNELS, n_classes=len(classes)).to(device)
-    model.load_state_dict(ckpt["state"])
+    classes = ckpt["classes"]
+    mean = ckpt["mean"]
+    std = ckpt["std"]
+
+    cfg_path = fold_dir.parent / "config.json"
+    if cfg_path.exists():
+        with open(cfg_path) as f:
+            cfg = json.load(f)
+        model = make_model(cfg.get("model", {"type": "cnn"}), N_CHANNELS, len(classes)).to(device)
+    else:
+        model = CNN1D(in_channels=N_CHANNELS, n_classes=len(classes)).to(device)
+
+    state = ckpt.get("state", ckpt.get("state_dict"))
+    if state is None:
+        raise KeyError(f"Checkpoint {fold_dir / 'model.pt'} lacks state/state_dict")
+    model.load_state_dict(state)
+    return model, mean, std, classes
+
+
+def evaluate_fold(fold_dir: Path, X_tr, y_tr, X_va, y_va, X_un, device):
+    model, mean, std, classes = _load_model(fold_dir, device)
 
     emb_tr, _ = _embed_batch(model, X_tr, mean, std, device)
     emb_va, prob_va = _embed_batch(model, X_va, mean, std, device)
@@ -109,17 +142,30 @@ def evaluate_fold(fold_dir: Path, X_tr, y_tr, X_va, y_va, X_un, device):
 
 def main():
     device = "cpu"
-    X, y, activity, groups = load_npz()
-    (Xk, yk, actk, grk, Xu, yu, actu, gru) = split_known_unknown(X, y, activity, groups)
+    data = load_npz()
+    X, y, activity, groups = (
+        data["X"],
+        data["y"],
+        data["activity"],
+        data["groups"],
+    )
+    known_mask = ~np.isin(y, UNKNOWN_USERS)
+    Xk, yk, actk, grk = X[known_mask], y[known_mask], activity[known_mask], groups[known_mask]
+    Xu, yu, actu, gru = X[~known_mask], y[~known_mask], activity[~known_mask], groups[~known_mask]
     classes = sorted(np.unique(yk).tolist())
     cls2id = {c: i for i, c in enumerate(classes)}
     yk_id = np.array([cls2id[v] for v in yk])
 
     # Tái tạo cùng split như train.py (3 folds)
     skf = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=SEED)
+    run_dir = _latest_simple_run_dir()
+    if run_dir is not None:
+        print(f"Using checkpoint run: {run_dir}")
+    else:
+        print(f"Using legacy checkpoints under: {MODELS_DIR}")
     results = {"folds": []}
     for fold, (tr_idx, va_idx) in enumerate(skf.split(Xk, yk_id, groups=grk)):
-        fold_dir = MODELS_DIR / f"fold{fold}"
+        fold_dir = _fold_dir(run_dir, fold)
         if not (fold_dir / "model.pt").exists():
             continue
         print(f"=== Fold {fold} ===")

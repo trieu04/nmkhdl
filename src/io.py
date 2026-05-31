@@ -18,16 +18,9 @@ KEY_RE = re.compile(
     r"(?:_att(?P<attempt>\d+))?"
     r"(?:_r(?P<rep>\d+))?\.csv$"
 )
-TOUCH_RE = re.compile(
-    r"^touch_(?P<kind>tap|scroll)"
-    r"(?:_s(?P<session>\d+))?"
-    r"(?:_att(?P<attempt>\d+))?"
-    r"(?:_r(?P<rep>\d+))?\.csv$"
-)
-
 
 def parse_filename(fname: str) -> dict | None:
-    for mod, rx in [("inertial", INERTIAL_RE), ("keystroke", KEY_RE), ("touch", TOUCH_RE)]:
+    for mod, rx in [("inertial", INERTIAL_RE), ("keystroke", KEY_RE)]:
         m = rx.match(fname)
         if m:
             d = m.groupdict()
@@ -54,7 +47,7 @@ def build_manifest(root: Path = RAW_DIR) -> pd.DataFrame:
             continue
         user = user_dir.name
         for fp in sorted(user_dir.glob("*.csv")):
-            if fp.name == "metadata.csv":
+            if fp.name == "metadata.csv" or fp.name.startswith("touch_"):
                 continue
             meta = parse_filename(fp.name)
             if meta is None:
@@ -90,10 +83,6 @@ def load_inertial(user: str, fname: str, root: Path = RAW_DIR) -> pd.DataFrame:
 
 
 def load_keystroke(user: str, fname: str, root: Path = RAW_DIR) -> pd.DataFrame:
-    return pd.read_csv(Path(root) / user / fname)
-
-
-def load_touch(user: str, fname: str, root: Path = RAW_DIR) -> pd.DataFrame:
     return pd.read_csv(Path(root) / user / fname)
 
 

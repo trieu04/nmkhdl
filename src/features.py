@@ -1,11 +1,11 @@
-"""Trích feature thủ công cho baseline cổ điển + keystroke + touch."""
+"""Trích feature thủ công cho baseline cổ điển và keystroke."""
 from __future__ import annotations
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
 from .config import RAW_DIR, INERTIAL_CHANNELS, FS, INTERIM_DIR
-from .io import load_keystroke, load_touch
+from .io import load_keystroke
 
 
 # ---------------- Inertial HAR-style features ----------------
@@ -39,7 +39,9 @@ def window_features(w: np.ndarray) -> np.ndarray:
             feats.append(v)
             names.append(f"{ch}_{k}")
     # Correlation giữa các trục
-    corr = np.corrcoef(w.T)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        corr = np.corrcoef(w.T)
+    corr = np.nan_to_num(corr, nan=0.0, posinf=0.0, neginf=0.0)
     pairs = [(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3), (1, 4), (2, 5)]
     for i, j in pairs:
         feats.append(float(corr[i, j]) if np.isfinite(corr[i, j]) else 0.0)
@@ -87,48 +89,11 @@ def keystroke_features(df: pd.DataFrame) -> dict:
     return out
 
 
-# ---------------- Touch features ----------------
-
-def touch_tap_features(df: pd.DataFrame) -> dict:
-    if len(df) == 0 or not {"holdMs", "pressure", "size"}.issubset(df.columns):
-        return {}
-    out = {
-        "tap_n_events": len(df),
-        "tap_hold_mean": float(df["holdMs"].astype(float).mean()),
-        "tap_hold_std": float(df["holdMs"].astype(float).std() or 0.0),
-        "tap_pressure_mean": float(df["pressure"].astype(float).mean()),
-        "tap_size_mean": float(df["size"].astype(float).mean()),
-        "tap_size_std": float(df["size"].astype(float).std() or 0.0),
-    }
-    return out
-
-
-def touch_scroll_features(df: pd.DataFrame) -> dict:
-    if len(df) == 0 or not {"x", "y", "timestamp", "pressure", "size"}.issubset(df.columns):
-        return {}
-    df = df.sort_values("timestamp").reset_index(drop=True)
-    dx = df["x"].astype(float).diff().fillna(0).to_numpy().copy()
-    dy = df["y"].astype(float).diff().fillna(0).to_numpy().copy()
-    dt = df["timestamp"].astype(float).diff().fillna(1).to_numpy().copy()
-    dt[dt <= 0] = 1.0
-    speed = np.sqrt(dx ** 2 + dy ** 2) / dt
-    out = {
-        "scroll_n_events": len(df),
-        "scroll_speed_mean": float(np.mean(speed)),
-        "scroll_speed_std": float(np.std(speed)),
-        "scroll_path_len": float(np.sum(np.sqrt(dx ** 2 + dy ** 2))),
-        "scroll_pressure_mean": float(df["pressure"].astype(float).mean()),
-        "scroll_size_mean": float(df["size"].astype(float).mean()),
-    }
-    return out
-
-
 # ---------------- Aggregate per user (cho baseline đơn giản) ----------------
 
 def aggregate_user_features(manifest: pd.DataFrame) -> pd.DataFrame:
-    """Trung bình các feature keystroke/touch trên các file của mỗi user
-    → 1 dòng / user, để chạy baseline classifier per-modality."""
-    rows_k, rows_tt, rows_ts = [], [], []
+    """Gom đặc trưng keystroke theo từng file."""
+    rows_k = []
     for _, r in manifest.iterrows():
         if r["modality"] == "keystroke":
             df = load_keystroke(r["user"], r["file"])
@@ -136,32 +101,14 @@ def aggregate_user_features(manifest: pd.DataFrame) -> pd.DataFrame:
             if feats:
                 feats.update({"user": r["user"], "file": r["file"]})
                 rows_k.append(feats)
-        elif r["modality"] == "touch" and r.get("kind") == "tap":
-            df = load_touch(r["user"], r["file"])
-            feats = touch_tap_features(df)
-            if feats:
-                feats.update({"user": r["user"], "file": r["file"]})
-                rows_tt.append(feats)
-        elif r["modality"] == "touch" and r.get("kind") == "scroll":
-            df = load_touch(r["user"], r["file"])
-            feats = touch_scroll_features(df)
-            if feats:
-                feats.update({"user": r["user"], "file": r["file"]})
-                rows_ts.append(feats)
-    return (
-        pd.DataFrame(rows_k),
-        pd.DataFrame(rows_tt),
-        pd.DataFrame(rows_ts),
-    )
+    return pd.DataFrame(rows_k)
 
 
 def main():
     manifest = pd.read_csv(INTERIM_DIR / "manifest.csv")
-    k_df, tap_df, scroll_df = aggregate_user_features(manifest)
+    k_df = aggregate_user_features(manifest)
     k_df.to_csv(INTERIM_DIR / "feat_keystroke.csv", index=False)
-    tap_df.to_csv(INTERIM_DIR / "feat_touch_tap.csv", index=False)
-    scroll_df.to_csv(INTERIM_DIR / "feat_touch_scroll.csv", index=False)
-    print(f"keystroke: {k_df.shape}, tap: {tap_df.shape}, scroll: {scroll_df.shape}")
+    print(f"keystroke: {k_df.shape}")
     print("Sample keystroke head:")
     print(k_df.head())
 

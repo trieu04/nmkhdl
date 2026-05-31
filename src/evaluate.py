@@ -42,7 +42,9 @@ def rf_baseline(Xk, yk_id, grk, n_splits=3):
         acc = accuracy_score(yk_id[va], pred)
         f1s.append(f1); accs.append(acc)
         print(f"  RF fold{fold}: macroF1={f1:.4f}  acc={acc:.4f}")
-    return {"mean_macroF1": float(np.mean(f1s)),
+    return {"fold_f1s": [float(v) for v in f1s],
+            "fold_accuracies": [float(v) for v in accs],
+            "mean_macroF1": float(np.mean(f1s)),
             "std_macroF1": float(np.std(f1s)),
             "mean_accuracy": float(np.mean(accs))}
 
@@ -126,7 +128,13 @@ def plot_per_activity(per_act, out_path):
 
 
 def main():
-    X, y, activity, groups = load_npz()
+    data = load_npz()
+    X, y, activity, groups = (
+        data["X"],
+        data["y"],
+        data["activity"],
+        data["groups"],
+    )
     (Xk, yk, actk, grk, *_) = split_known_unknown(X, y, activity, groups)
     classes = sorted(np.unique(yk).tolist())
     cls2id = {c: i for i, c in enumerate(classes)}
