@@ -1,0 +1,44 @@
+{
+  "config": "experiments/configs/SIMPLE_CNN.yaml",
+  "method": "Simple baseline: CNN 1D + Random Forest",
+  "cnn": {
+    "name": "SIMPLE_CNN",
+    "fold_f1s": [
+      0.6933041571720661,
+      0.6771992408359234,
+      0.6938255366470258
+    ],
+    "mean_macroF1": 0.6881096448850051,
+    "std_macroF1": 0.007717756432404902,
+    "run_id": "20260524-094441_SIMPLE_SIMPLE_CNN"
+  },
+  "rf": {
+    "fold_f1s": [
+      0.787615474557076,
+      0.7581679216267837,
+      0.807732636664583
+    ],
+    "fold_accuracies": [
+      0.7976387738193869,
+      0.7840782968418929,
+      0.8223075408544989
+    ],
+    "mean_macroF1": 0.7845053442828142,
+    "std_macroF1": 0.020353868214448748,
+    "mean_accuracy": 0.8013415371719262
+  },
+  "classes": [
+    "userA",
+    "userB",
+    "userC",
+    "userF",
+    "userG",
+    "userH",
+    "userK",
+    "userL",
+    "userM",
+    "userN",
+    "userP",
+    "userQ"
+  ]
+}

@@ -233,7 +233,7 @@ Nhóm chọn 3-fold vì số file giữa các user không đều; user ít file 
 
 \subsection{Mô hình Random Forest}
 
-Random Forest được dùng như baseline chính vì dễ giải thích và phù hợp với dữ liệu vừa/nhỏ. Mỗi cửa sổ cảm biến được chuyển thành vector 65 đặc trưng thủ công. Cấu trúc feature gồm \(6 \times 9 = 54\) đặc trưng thống kê/FFT cho 6 kênh, 9 đặc trưng correlation giữa các cặp trục được chọn, và 2 đặc trưng Signal Magnitude Area (SMA) cho accelerometer và gyroscope.
+Random Forest là phương pháp để phù hợp với dữ liệu vừa/nhỏ. Mỗi cửa sổ cảm biến được chuyển thành vector 65 đặc trưng thủ công. Cấu trúc feature gồm \(6 \times 9 = 54\) đặc trưng thống kê/FFT cho 6 kênh, 9 đặc trưng correlation giữa các cặp trục được chọn, và 2 đặc trưng Signal Magnitude Area (SMA) cho accelerometer và gyroscope.
 
 \begin{itemize}
     \item Thống kê theo từng trục: mean, standard deviation, MAD, min, max, IQR, energy.
@@ -583,8 +583,6 @@ Các thử nghiệm phức tạp như ResNet, TCN, BiLSTM, scheduler, MixUp/CutM
 
 \subsection{Đóng gói sản phẩm nộp}
 
-Theo yêu cầu nộp đồ án, sản phẩm cuối nên được đóng gói thành một file nén chứa đầy đủ mã nguồn, hướng dẫn chạy và báo cáo. Các thành phần cần có:
-
 \begin{itemize}
     \item Mã nguồn dự án và cấu hình thí nghiệm.
     \item Hướng dẫn cài đặt và chạy: \texttt{README.md} và \texttt{requirements.txt}.
@@ -594,19 +592,6 @@ Theo yêu cầu nộp đồ án, sản phẩm cuối nên được đóng gói t
     \item Các hình kết quả dùng trong báo cáo.
 \end{itemize}
 
-Khi nộp, nên kiểm tra lại rằng người chấm có thể đọc \texttt{README.md}, cài môi trường bằng \texttt{requirements.txt}, chạy pipeline đơn giản, mở notebook và xem được báo cáo PDF mà không cần tái tạo toàn bộ các thử nghiệm cũ.
-
-\section*{Phụ lục: Lệnh biên dịch báo cáo}
-\addcontentsline{toc}{section}{Phụ lục: Lệnh biên dịch báo cáo}
-
-Trong thư mục chứa \texttt{bao\_cao.tex}, chạy:
-
-\begin{lstlisting}[language=bash]
-pdflatex bao_cao.tex
-pdflatex bao_cao.tex
-\end{lstlisting}
-
-File PDF đầu ra là \texttt{bao\_cao.pdf}.
 
 \begin{thebibliography}{9}
 \bibitem{sklearn}

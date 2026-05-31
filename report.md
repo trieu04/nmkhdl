@@ -168,11 +168,10 @@ Trong giai đoạn tiếp theo, nhóm sẽ thực hiện các công việc sau:
 
 ## 4.1. Dữ liệu thực tế
 
-Sau khi hoàn thành thu thập, bộ dữ liệu cuối cùng gồm **15 người dùng (userA–userQ)** với tổng cộng **325 file CSV** trải đều trên ba modality:
+Sau khi hoàn thành thu thập, phần dữ liệu dùng trong pipeline cuối gồm **15 người dùng (userA–userQ)** với tổng cộng **185 file CSV** trên hai modality:
 
 - **Inertial (cảm biến quán tính)**: gia tốc kế và con quay hồi chuyển, kèm cảm biến từ trường. Đây là modality chính, gồm các kịch bản sitting, standing, walking.
 - **Keystroke**: nhật ký gõ phím (timestamp các sự kiện DOWN/UP).
-- **Touch**: log chạm và cuộn màn hình.
 
 Bảng manifest tự sinh (`data/interim/manifest.csv`) chuẩn hoá tên file theo nhiều schema (`_s{S}_att{n}.csv`, `_s{S}_r{m}.csv`, …) và rút ra: người dùng, modality, hoạt động, session, attempt/rep, fs đo lường. Tần số lấy mẫu thực tế của cảm biến quán tính được xác định **fs ≈ 50 Hz** (timestamp_ns chênh ~20 ms cho 14/15 người dùng). Riêng userA bị lỗi phiên bản app (timestamp_ns = 0, magnetometer = 0) nên hệ thống chỉ dùng 6 kênh `acc_xyz + gyro_xyz`.
 
@@ -262,7 +261,7 @@ Softmax đơn giản tốt hơn Mahalanobis ở giao thức này — do embeddin
 ## 5.4. Phân tích và hướng cải tiến
 
 1. **Augmentation mạnh hơn / SimCLR pretraining**: tăng đa dạng phiên ghi giả lập để CNN không phụ thuộc đặc trưng của một phiên cụ thể.
-2. **Fusion**: kết hợp CNN trên cảm biến với đặc trưng keystroke/touch (đã trích sẵn ở `data/interim/feat_*.csv`) ở mức người dùng — cải thiện đặc biệt khi inertial yếu.
+2. **Fusion**: kết hợp CNN trên cảm biến với đặc trưng keystroke (đã trích sẵn ở `feat_keystroke.csv`) ở mức người dùng — cải thiện đặc biệt khi inertial yếu.
 3. **Tăng số phiên ghi mỗi người** (chuẩn ≥ 5 phiên/người để StratifiedGroupKFold 5-fold làm việc bền vững).
 4. **Loại bỏ userA hoặc thu lại** vì lỗi timestamp/magnetometer.
 
@@ -276,7 +275,7 @@ Hệ thống được tổ chức thành 6 chức năng dòng lệnh độc lậ
 | --- | --- | --- | --- |
 | 1 | `python -m src.io` | Quét toàn bộ `rootdata - Copy/`, phân tích filename, sinh manifest | `data/interim/manifest.csv` |
 | 2 | `python -m src.preprocess` | Lọc Butterworth + trượt cửa sổ → tensor huấn luyện | `data/processed/windows.npz` |
-| 3 | `python -m src.features` | Trích đặc trưng keystroke + touch (cho phân tích bổ sung) | `data/interim/feat_*.csv` |
+| 3 | `python -m src.features` | Trích đặc trưng keystroke (cho phân tích bổ sung) | `feat_keystroke.csv` |
 | 4 | `python -m src.train --epochs 40 --folds 3` | Huấn luyện CNN 1D với StratifiedGroupKFold | `models/foldK/model.pt`, `models/cv_summary.json` |
 | 5 | `python -m src.openset` | Đánh giá open-set bằng softmax + Mahalanobis | `reports/openset_results.json` |
 | 6 | `python -m src.evaluate` | Random Forest baseline + confusion matrix + per-activity | `reports/evaluate_results.json`, `reports/figures/*.png` |
@@ -314,7 +313,7 @@ src/
 ├── config.py        Hằng số toàn cục
 ├── io.py            Đọc CSV + manifest builder
 ├── preprocess.py    Filter + sliding window
-├── features.py      Đặc trưng thủ công (inertial / keystroke / touch)
+├── features.py      Đặc trưng thủ công (inertial / keystroke)
 ├── datasets.py      PyTorch Dataset + augmentation
 ├── models.py        Kiến trúc CNN 1D
 ├── train.py         3-fold CV trainer
@@ -329,10 +328,10 @@ src/
 - Các hằng số DSP (`FS`, `LOWPASS_CUTOFF`, `HIGHPASS_GRAVITY`), kích thước cửa sổ (`WINDOW_SIZE`, `WINDOW_STRIDE`), danh sách kênh (`INERTIAL_CHANNELS`), `UNKNOWN_USERS`, `SEED`.
 
 ### `src/io.py`
-- `parse_filename(fname)` — match 1 trong 3 regex (INERTIAL_RE, KEY_RE, TOUCH_RE) để rút `(activity, session, attempt, rep)`.
+- `parse_filename(fname)` — match regex inertial hoặc keystroke để rút `(activity, session, attempt, rep)`.
 - `_estimate_fs(df)` — tính `1e9 / median(diff(timestamp_ns))`.
-- `load_inertial / load_keystroke / load_touch / load_metadata` — wrapper đọc CSV và chuẩn hoá tên cột.
-- `build_manifest(root)` — duyệt cây thư mục, gọi parser, tạo `DataFrame` 325 dòng.
+- `load_inertial / load_keystroke / load_metadata` — wrapper đọc CSV và chuẩn hoá tên cột.
+- `build_manifest(root)` — duyệt cây thư mục, gọi parser, tạo `DataFrame` 185 dòng.
 - `save_manifest(df)` — ghi `data/interim/manifest.csv`.
 
 ### `src/preprocess.py`
@@ -344,9 +343,9 @@ src/
 
 ### `src/features.py`
 - `_stats_per_axis(x)` — trả 9 chỉ số (mean, std, mad, min, max, iqr, energy, fft_entropy, fft_dom_freq).
-- `window_features(W)` — vector 62 chiều cho 1 cửa sổ.
-- `batch_features(X)` — chạy `window_features` cho `N` cửa sổ → `(N, 62)`.
-- `keystroke_features(df)`, `touch_tap_features(df)`, `touch_scroll_features(df)` — đặc trưng cho 2 modality phụ.
+- `window_features(W)` — vector 65 chiều cho 1 cửa sổ.
+- `batch_features(X)` — chạy `window_features` cho `N` cửa sổ → `(N, 65)`.
+- `keystroke_features(df)` — đặc trưng cho modality gõ phím.
 - `aggregate_user_features()` — tổng hợp ở mức user, lưu CSV.
 
 ### `src/datasets.py`
@@ -400,7 +399,7 @@ Khoảng ~700 dòng Python, mọi module có hàm `__main__` riêng để chạy
 
 **Triệu chứng**: cùng modality inertial có tới 4 cách đặt tên (`_s1_att2.csv`, `_s1_r3.csv`, `_s1_att2_r1.csv`, `_r1.csv`).
 
-**Giải pháp**: viết 3 regex riêng cho 3 modality trong `src/io.py`; sau đó validate 0 dòng `UNPARSED` trong manifest. Nếu lười dùng 1 regex chung, sẽ bỏ sót ~40 % file.
+**Giải pháp**: viết regex riêng cho inertial và keystroke trong `io.py`; sau đó validate 0 dòng `UNPARSED` trong manifest.
 
 ## 8.3. Mất cân bằng cửa sổ cực mạnh
 
