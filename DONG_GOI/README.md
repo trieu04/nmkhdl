@@ -56,7 +56,8 @@ NMKHDL/
 │   ├── openset.py                # Softmax / Mahalanobis open-set
 │   └── evaluate.py               # RF baseline + confusion + figures
 ├── scripts/
-│   └── pptx_to_md.py             # Trích nội dung slide ra Markdown
+│   ├── run_simple_pipeline.py    # Chạy pipeline đơn giản CNN 1D + RF
+│   └── plot_simple_results.py    # Vẽ biểu đồ từ simple_results.json
 ├── data/
 │   ├── interim/                  # manifest.csv, feat_*.csv
 │   └── processed/                # windows.npz

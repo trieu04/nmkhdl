@@ -40,4 +40,3 @@
 \contentsline {subsection}{\numberline {7.2}Kết luận}{15}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}Hướng phát triển}{15}{subsection.7.3}%
 \contentsline {subsection}{\numberline {7.4}Đóng gói sản phẩm nộp}{15}{subsection.7.4}%
-\contentsline {section}{Phụ lục: Lệnh biên dịch báo cáo}{16}{section*.15}%
